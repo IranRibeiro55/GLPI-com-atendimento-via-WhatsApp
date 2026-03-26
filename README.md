@@ -1,6 +1,35 @@
 # Implantação do GLPI com Integração de Atendimento via WhatsApp
 
-Documentação da implantação de um ambiente **GLPI + Bot de WhatsApp**, permitindo abertura e consulta de chamados por WhatsApp com integração via **API REST do GLPI**.
+![GLPI](https://img.shields.io/badge/GLPI-Helpdesk-blue)
+![Node.js](https://img.shields.io/badge/Node.js-20.x-green)
+![WhatsApp](https://img.shields.io/badge/WhatsApp-web.js-25D366)
+![Debian](https://img.shields.io/badge/Debian-12-red)
+
+Documentação completa da implantação do **GLPI + Bot de WhatsApp**, com abertura e consulta de chamados via **API REST do GLPI**.
+
+---
+
+## Sumário
+
+- [Objetivo](#objetivo)
+- [Arquitetura da solução](#arquitetura-da-solução)
+- [Estrutura de pastas](#estrutura-de-pastas)
+- [Pré-requisitos](#pré-requisitos)
+- [Instalação rápida](#instalação-rápida)
+- [Instalação do GLPI](#instalação-do-glpi)
+- [Configuração da API do GLPI](#configuração-da-api-do-glpi)
+- [Testes iniciais da API](#testes-iniciais-da-api)
+- [Instalação do bot do WhatsApp](#instalação-do-bot-do-whatsapp)
+- [Configuração do arquivo `.env`](#configuração-do-arquivo-env)
+- [Código completo do bot](#código-completo-do-bot)
+- [Execução do bot](#execução-do-bot)
+- [Autenticação no WhatsApp](#autenticação-no-whatsapp)
+- [Fluxo funcional](#fluxo-funcional)
+- [Comportamento dos anexos](#comportamento-dos-anexos)
+- [Erros comuns](#erros-comuns)
+- [Comandos operacionais rápidos](#comandos-operacionais-rápidos)
+- [Boas práticas](#boas-práticas)
+- [Conclusão](#conclusão)
 
 ---
 
@@ -44,6 +73,20 @@ Usuário -> WhatsApp -> Bot Node.js -> API REST do GLPI -> Ticket
 
 ---
 
+## Estrutura de pastas
+
+```text
+/opt/wa-glpi-bot
+├── .env
+├── index.js
+├── package.json
+├── package-lock.json
+├── .wwebjs_auth/
+└── .wwebjs_cache/
+```
+
+---
+
 ## Pré-requisitos
 
 Antes de iniciar, garantir que o servidor possua:
@@ -60,11 +103,49 @@ Antes de iniciar, garantir que o servidor possua:
 
 ---
 
+## Instalação rápida
+
+### 1. Instalar dependências principais
+
+```bash
+sudo apt update && sudo apt full-upgrade -y
+sudo apt install -y apache2 mariadb-server wget tar bzip2 unzip curl
+```
+
+### 2. Instalar PHP do GLPI
+
+```bash
+sudo apt install -y   php8.2   libapache2-mod-php8.2   php8.2-cli   php8.2-common   php8.2-mysql   php8.2-xml   php8.2-curl   php8.2-gd   php8.2-intl   php8.2-bcmath   php8.2-mbstring   php8.2-zip   php8.2-bz2   php8.2-ldap   php8.2-opcache
+```
+
+### 3. Instalar Node.js
+
+```bash
+sudo apt install -y curl ca-certificates gnupg
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+### 4. Instalar Chromium
+
+```bash
+sudo apt install -y chromium fonts-liberation libasound2 libatk-bridge2.0-0 libatk1.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgbm1 libglib2.0-0 libgtk-3-0 libnspr4 libnss3 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 xdg-utils
+```
+
+### 5. Criar projeto do bot
+
+```bash
+mkdir -p /opt/wa-glpi-bot
+cd /opt/wa-glpi-bot
+npm init -y
+npm install whatsapp-web.js qrcode-terminal axios dotenv
+```
+
+---
+
 ## Instalação do GLPI
 
 ### 1. Atualização do sistema
-
-Execute:
 
 ```bash
 sudo apt update && sudo apt full-upgrade -y
@@ -72,33 +153,11 @@ sudo apt update && sudo apt full-upgrade -y
 
 ### 2. Instalação dos pacotes necessários
 
-Execute:
-
 ```bash
-sudo apt install -y \
-  apache2 \
-  mariadb-server \
-  wget tar bzip2 unzip curl \
-  php8.2 \
-  libapache2-mod-php8.2 \
-  php8.2-cli \
-  php8.2-common \
-  php8.2-mysql \
-  php8.2-xml \
-  php8.2-curl \
-  php8.2-gd \
-  php8.2-intl \
-  php8.2-bcmath \
-  php8.2-mbstring \
-  php8.2-zip \
-  php8.2-bz2 \
-  php8.2-ldap \
-  php8.2-opcache
+sudo apt install -y   apache2   mariadb-server   wget tar bzip2 unzip curl   php8.2   libapache2-mod-php8.2   php8.2-cli   php8.2-common   php8.2-mysql   php8.2-xml   php8.2-curl   php8.2-gd   php8.2-intl   php8.2-bcmath   php8.2-mbstring   php8.2-zip   php8.2-bz2   php8.2-ldap   php8.2-opcache
 ```
 
 ### 3. Habilitar os serviços
-
-Execute:
 
 ```bash
 sudo systemctl enable --now apache2
@@ -106,8 +165,6 @@ sudo systemctl enable --now mariadb
 ```
 
 ### 4. Segurança inicial do banco
-
-Execute:
 
 ```bash
 sudo mysql_secure_installation
@@ -140,8 +197,6 @@ EXIT;
 ```
 
 ### 6. Download e extração do GLPI
-
-Execute:
 
 ```bash
 cd /tmp
@@ -294,14 +349,8 @@ GLPI_USER_TOKEN
 
 ### Teste de sessão
 
-Execute:
-
 ```bash
-curl -s -X GET \
-  -H "Content-Type: application/json" \
-  -H "Authorization: user_token SEU_TOKEN_USUARIO" \
-  -H "App-Token: SEU_APP_TOKEN" \
-  "http://SEU_IP/apirest.php/initSession"
+curl -s -X GET   -H "Content-Type: application/json"   -H "Authorization: user_token SEU_TOKEN_USUARIO"   -H "App-Token: SEU_APP_TOKEN"   "http://SEU_IP/apirest.php/initSession"
 ```
 
 Saída esperada:
@@ -312,15 +361,8 @@ Saída esperada:
 
 ### Teste de criação de ticket
 
-Execute:
-
 ```bash
-curl -s -X POST \
-  -H "Content-Type: application/json" \
-  -H "Session-Token: SEU_SESSION_TOKEN" \
-  -H "App-Token: SEU_APP_TOKEN" \
-  -d '{"input":{"name":"Teste API GLPI","content":"Chamado criado via API","urgency":3,"impact":3,"priority":3}}' \
-  "http://SEU_IP/apirest.php/Ticket/"
+curl -s -X POST   -H "Content-Type: application/json"   -H "Session-Token: SEU_SESSION_TOKEN"   -H "App-Token: SEU_APP_TOKEN"   -d '{"input":{"name":"Teste API GLPI","content":"Chamado criado via API","urgency":3,"impact":3,"priority":3}}'   "http://SEU_IP/apirest.php/Ticket/"
 ```
 
 ---
@@ -328,8 +370,6 @@ curl -s -X POST \
 ## Instalação do bot do WhatsApp
 
 ### 1. Instalar Node.js
-
-Execute:
 
 ```bash
 sudo apt update
@@ -347,15 +387,11 @@ npm -v
 
 ### 2. Instalar Chromium e dependências
 
-Execute:
-
 ```bash
 sudo apt install -y chromium fonts-liberation libasound2 libatk-bridge2.0-0 libatk1.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgbm1 libglib2.0-0 libgtk-3-0 libnspr4 libnss3 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 xdg-utils
 ```
 
 ### 3. Criar diretório do projeto
-
-Execute:
 
 ```bash
 mkdir -p /opt/wa-glpi-bot
@@ -363,8 +399,6 @@ cd /opt/wa-glpi-bot
 ```
 
 ### 4. Inicializar projeto Node.js
-
-Execute:
 
 ```bash
 npm init -y
@@ -403,11 +437,9 @@ TICKET_PREFIX=WhatsApp
 
 ---
 
-## Criação do arquivo principal do bot
+## Código completo do bot
 
 ### 1. Remover arquivo antigo, se existir
-
-Execute:
 
 ```bash
 rm -f /opt/wa-glpi-bot/index.js
@@ -415,17 +447,11 @@ rm -f /opt/wa-glpi-bot/index.js
 
 ### 2. Criar novo arquivo
 
-Execute:
-
 ```bash
 nano /opt/wa-glpi-bot/index.js
 ```
 
-### 3. Código-fonte do bot
-
-Cole o conteúdo completo do seu `index.js` dentro do arquivo.
-
-Exemplo de início:
+### 3. Colar o código completo abaixo
 
 ```javascript
 require('dotenv').config();
@@ -1093,22 +1119,31 @@ Se quiser voltar ao menu, envie *#*.`
 });
 
 client.initialize();
+```
 
-### 4. Validar sintaxe
+### 4. Salvar o arquivo
 
-Execute:
+No `nano`:
+
+```text
+Ctrl + O
+Enter
+Ctrl + X
+```
+
+### 5. Testar a sintaxe do arquivo
 
 ```bash
 node --check /opt/wa-glpi-bot/index.js
 ```
+
+Se não aparecer nada, o arquivo está correto.
 
 ---
 
 ## Execução do bot
 
 ### Iniciar manualmente
-
-Execute:
 
 ```bash
 cd /opt/wa-glpi-bot
@@ -1121,7 +1156,11 @@ Saída esperada:
 Bot do WhatsApp pronto.
 ```
 
-Se a sessão ainda não estiver autenticada, aparecerá o QR Code no terminal.
+Se a sessão ainda não estiver autenticada, aparecerá:
+
+```text
+=== ESCANEIE O QR CODE NO WHATSAPP ===
+```
 
 ---
 
@@ -1138,8 +1177,6 @@ No celular:
 
 ### Como forçar um novo QR Code
 
-Execute:
-
 ```bash
 pkill -f "node index.js"
 pkill -f chromium
@@ -1152,7 +1189,7 @@ node index.js
 
 ---
 
-## Fluxo funcional para o usuário
+## Fluxo funcional
 
 ### Menu principal
 
@@ -1213,7 +1250,7 @@ Retorno esperado:
 
 ---
 
-## Comportamento atual dos anexos
+## Comportamento dos anexos
 
 ### O que acontece nesta versão
 
@@ -1235,7 +1272,7 @@ Retorno esperado:
 
 ---
 
-## Erros encontrados e correções
+## Erros comuns
 
 ### `ERROR_WRONG_APP_TOKEN_PARAMETER`
 
@@ -1300,10 +1337,11 @@ node index.js
 
 **Correção:**
 
-- apagar o arquivo
-- recriar no editor correto
-- colar apenas o código JavaScript
-- validar com `node --check`
+```bash
+rm -f /opt/wa-glpi-bot/index.js
+nano /opt/wa-glpi-bot/index.js
+node --check /opt/wa-glpi-bot/index.js
+```
 
 ---
 
@@ -1336,7 +1374,7 @@ node index.js
 
 ---
 
-## Boas práticas operacionais
+## Boas práticas
 
 - manter backup do arquivo `.env`
 - nunca expor tokens em prints ou documentação pública
@@ -1349,12 +1387,3 @@ node index.js
 ## Conclusão
 
 A implantação documentada permite operar um fluxo básico e funcional de abertura e consulta de chamados via WhatsApp integrado ao GLPI, com autenticação por QR Code e uso da API REST do GLPI para criação e leitura de tickets.
-
-### Evoluções futuras sugeridas
-
-- anexar arquivos fisicamente ao ticket
-- identificar usuário por base cadastral
-- direcionar categoria automaticamente
-- executar como serviço no sistema
-- registrar logs estruturados
-- integrar com banco de conhecimento
