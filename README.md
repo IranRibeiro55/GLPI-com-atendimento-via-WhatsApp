@@ -418,7 +418,7 @@ nano /opt/wa-glpi-bot/.env
 Conteúdo:
 
 ```ini
-GLPI_URL=http://192.168.1.81
+GLPI_URL=http://172.0.0.1
 GLPI_APP_TOKEN=SEU_APP_TOKEN
 GLPI_USER_TOKEN=SEU_TOKEN_USUARIO
 CHROMIUM_PATH=/usr/bin/chromium
@@ -471,7 +471,7 @@ if (!GLPI_URL || !GLPI_APP_TOKEN || !GLPI_USER_TOKEN) {
   process.exit(1);
 }
 
-const TI_EMAIL = 'tecnologia@grupollal.com.br';
+const TI_EMAIL = 'seuemail.empresa@dominio.com.br';
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
 const MIN_MESSAGE_INTERVAL_MS = 1200;
 const MAX_DESCRIPTION_LENGTH = 1800;
